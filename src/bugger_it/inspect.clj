@@ -97,11 +97,11 @@
       m)))
 
 (defmethod remote-value clojure.lang.PersistentHashMap$INode
+  [v]
   "PersistentHashMap has three inner classes: ArrayNode, BitmapIndexedNode, and
    HashCollisionNode -- they all have an 'array' field which is where the map
    contents actually go, they just differ in how they chose where to put each
    pair. Thankfully, we don't care where they put them."
-  [v]
   (let [array (.getValues ^ArrayReference (get-remote-field v "array"))
         pairs (partition 2 array)
         keyvals (into {} (map (fn [[k v]] [(remote-value k) (remote-value v)])

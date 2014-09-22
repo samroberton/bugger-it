@@ -34,6 +34,30 @@
             (.visibleVariables frame)))))
 
 
+(defn trace-fn
+  [debuggee f]
+  (let [c (bugger/as-java-class-name f)
+        depth (atom 0)
+        entry-handler (fn [thread method]
+                        (println
+                         (str "T" (.uniqueID thread) " -> "
+                              (apply str (repeat (- (swap! depth inc) 1) "  "))
+                              (-> method .location .declaringType .name)
+                              "#" (.name method)
+                              (pr-str (arguments thread))))
+                        :resume)
+        exit-handler  (fn [thread method return-val]
+                        (println
+                         (str "T" (.uniqueID thread) " <- "
+                              (apply str (repeat (swap! depth dec) "  "))
+                              (-> method .location .declaringType .name)
+                              "#" (.name method) "(..): "
+                              (inspect/remote-value return-val)))
+                        :resume)]
+    [(bugger/break-on-method-enter debuggee entry-handler {:only-class c})
+     (bugger/break-on-method-exit debuggee exit-handler {:only-class c})]))
+
+
 ;; annoying: invoking a method resumes the thread, which makes stack frames invalid
 #_(defn- invoke-remote-method
   [thread object-ref method-name & args]

@@ -8,7 +8,9 @@
     MonitorContendedEnterEvent MonitorWaitedEvent MonitorWaitEvent StepEvent
     ThreadDeathEvent ThreadStartEvent VMDeathEvent VMDisconnectEvent
     VMStartEvent]
-   [com.sun.jdi.request ExceptionRequest EventRequestManager EventRequest]
+   [com.sun.jdi.request
+    ExceptionRequest EventRequestManager EventRequest MethodEntryRequest
+    MethodExitRequest StepRequest]
    [java.util.concurrent Executors ExecutorService]))
 
 
@@ -64,11 +66,11 @@
 (defn- handle-event-set
   "Calls handle-event for each event in the event-set. If the event-set
   indicates that the thread or VM is suspended, and all the handlers return
-  non-false/non-nil, calls EventSet#resume()."
+  :resume, calls EventSet#resume()."
   [^EventSet event-set]
   (let [handler-results (doall (map handle-event event-set))
         suspended? (not= EventRequest/SUSPEND_NONE (.suspendPolicy event-set))]
-    (when (and suspended? (every? identity handler-results))
+    (when (and suspended? (every? #(= :resume %) handler-results))
       (.resume event-set))))
 
 (defrecord Debuggee [^VirtualMachine vm connected monitor-thread])
@@ -119,7 +121,7 @@
     (#(when enabled
         (.enable %)))))
 
-(defn- as-java-class-name
+(defn as-java-class-name
   "For example:
     (as-java-class-name 'clojure.main/eval-opt)
      -> \"clojure.main$eval_opt\"
@@ -225,40 +227,40 @@
 (defn break-on-method-enter
   "handler-fn will be invoked with [thread method] when the breakpoint is hit.
 
-  Returns a single MethodEntryEventRequest."
-  [debuggee handler-fn class-name
-   {:keys [exclude-class only-class instance thread] :as options}]
+  Returns a single MethodEntryRequest."
+  [debuggee handler-fn {:keys [exclude-class only-class instance thread]
+                        :as options}]
   (doto (-> (:vm debuggee) .eventRequestManager .createMethodEntryRequest)
     (#(doseq [class (as-coll exclude-class)]
         (.addClassExclusionFilter % class)))
     (#(doseq [class (as-coll only-class)]
         (if (string? class)
-          (.addClassFilter % ^String class)
-          (.addClassFilter % ^ReferenceType class))))
+          (.addClassFilter ^MethodEntryRequest % ^String class)
+          (.addClassFilter ^MethodEntryRequest % ^ReferenceType class))))
     (#(when instance
-        (.addInstanceFilter % instance)))
+        (.addInstanceFilter ^MethodEntryRequest % instance)))
     (#(when thread
-        (.addThreadFilter % thread)))
+        (.addThreadFilter ^MethodEntryRequest % thread)))
     (configure-event-request handler-fn options)))
 
 (defn break-on-method-exit
   "handler-fn will be invoked with [thread method return-value] when the
   breakpoint is hit.
 
-  Returns a single MethodExitEventRequest."
-  [debuggee handler-fn class-name
-   {:keys [exclude-class only-class instance thread] :as options}]
-  (doto (-> (:vm debuggee) .eventRequestManager .createMethodEntryRequest)
+  Returns a single MethodExitRequest."
+  [debuggee handler-fn {:keys [exclude-class only-class instance thread]
+                        :as options}]
+  (doto (-> (:vm debuggee) .eventRequestManager .createMethodExitRequest)
     (#(doseq [class (as-coll exclude-class)]
-        (.addClassExclusionFilter % class)))
+        (.addClassExclusionFilter ^MethodExitRequest % class)))
     (#(doseq [class (as-coll only-class)]
         (if (string? class)
-          (.addClassFilter % ^String class)
-          (.addClassFilter % ^ReferenceType class))))
+          (.addClassFilter ^MethodExitRequest % ^String class)
+          (.addClassFilter ^MethodExitRequest % ^ReferenceType class))))
     (#(when instance
-        (.addInstanceFilter % instance)))
+        (.addInstanceFilter ^MethodExitRequest % instance)))
     (#(when thread
-        (.addThreadFilter % thread)))
+        (.addThreadFilter ^MethodExitRequest % thread)))
     (configure-event-request handler-fn options)))
 
 (defn- get-fields
@@ -457,3 +459,9 @@
   [debuggee]
   (let [erm (.eventRequestManager (:vm debuggee))]
     (.deleteEventRequests erm (.exceptionRequests erm))))
+
+(defn delete-all-method-entry-and-exit-breakpoints
+  [debuggee]
+  (let [erm (.eventRequestManager (:vm debuggee))]
+    (.deleteEventRequests erm (.methodEntryRequests erm))
+    (.deleteEventRequests erm (.methodExitRequests erm))))
