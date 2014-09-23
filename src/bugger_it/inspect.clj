@@ -83,6 +83,24 @@
   [v]
   (keyword (remote-value (get-remote-field v "sym"))))
 
+(defmethod remote-value clojure.lang.PersistentVector
+  [v]
+  (let [cnt (.value ^IntegerValue (get-remote-field v "cnt"))
+        shift (.value ^IntegerValue (get-remote-field v "shift"))
+        root (get-remote-field v "root")]
+    (into
+     (into []
+           ((fn rd [shift node]
+              (if-let [array (when node
+                               (.getValues ^ArrayReference
+                                           (get-remote-field node "array")))]
+                (if (> shift 0)
+                  (apply concat (map #(rd (- shift 5) %) array))
+                  (map remote-value array))))
+            shift root))
+     (map remote-value
+          (.getValues ^ArrayReference (get-remote-field v "tail"))))))
+
 (defmethod remote-value clojure.lang.PersistentArrayMap
   [v]
   (let [array (.getValues ^ArrayReference (get-remote-field v "array"))]
