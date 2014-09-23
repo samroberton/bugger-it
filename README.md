@@ -48,13 +48,17 @@ Available from https://github.com/samroberton/bugger-it.
 At this stage, `bugger-it` is intended for connecting to an already-running JVM
 process. Therefore the JVM process will need to have been started with these
 options:
+```
     -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n
+```
 
 If you want to be able to inspect local variables in the debuggee, and you're
 not too worried about running out of memory from lazy seqs holding onto their
 heads, you'll probably want to start your debuggee JVM process with the
 following, as well:
+```
     -Dclojure.compiler.disable-locals-clearing=true
+```
 
 If you wish to debug a process that you run from a `lein` REPL, for example, you
 can launch the REPL from your debuggee's `lein` project directory like this:

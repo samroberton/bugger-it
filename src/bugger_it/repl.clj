@@ -7,24 +7,19 @@
    [com.sun.jdi LocalVariable ObjectReference]))
 
 
-(defn suspend-and-save-at-point
-  [debuggee class-name line-number]
-  (let [threads (atom [])
-        handler-fn (fn [thread]
-                     (swap! threads conj thread)
-                     (println "Breakpoint hit in thread " thread "; "
-                              (count @threads) " threads currently suspended "
-                              "on this breakpoint"))]
-    (bugger/break-at-point debuggee handler-fn class-name line-number {:suspend :thread})
-    threads))
-
 (defn arguments
+  "Gets (with inspect/remote-value) the arguments in the identified frame (by
+   default, frame zero) as a seq of variable values. Only works when thread is
+   suspended."
   ([thread]
      (arguments thread 0))
   ([thread frame-number]
      (map inspect/remote-value (.getArgumentValues (.frame thread frame-number)))))
 
 (defn visible-variables
+  "Gets (with inspect/remote-value) the visible variables in the identified
+   frame (by default, frame zero) as a map of variable name to value. Only works
+   when thread is suspended."
   ([thread]
      (visible-variables thread 0))
   ([thread frame-number]
@@ -33,6 +28,34 @@
               [(.name var) (inspect/remote-value (.getValue frame var))])
             (.visibleVariables frame)))))
 
+(defn suspend-and-save-at-point
+  "Installs a breakpoint which suspends the thread when hit and leaves it
+   suspended. Returns an atom holding a vector; when the breakpoint is hit, the
+   thread which hits it will be conj'd into the vector."
+  [debuggee class-name line-number]
+  (let [threads (atom [])
+        handler-fn (fn [thread]
+                     (swap! threads conj thread)
+                     (println "Breakpoint at" (str class-name ":" line-number)
+                              "in thread" (str "T" (.uniqueID thread))))]
+    (bugger/break-at-point debuggee handler-fn class-name line-number
+                           {:suspend :thread})
+    threads))
+
+(defn suspend-and-save-on-exception
+  "Installs a breakpoint which suspends the thread whenever there is an
+   exception, caught or uncaught. Returns an atom holding a vector; when an
+   exception is raised, a map of with keys :thread, :exception and
+   :catch-location will be conj'd into the vector."
+  [debuggee]
+  (let [events (atom [])
+        handler-fn (fn [t e cl]
+                     (swap! events conj
+                            {:thread t :exception e :catch-location cl})
+                     (println (.getName (class e))  "in thread"
+                              (str "T" (.uniqueID t))))]
+    (bugger/break-on-exception debuggee handler-fn {:suspend :thread})
+    events))
 
 (defn trace-fn
   [debuggee f]
