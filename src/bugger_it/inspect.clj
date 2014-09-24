@@ -83,6 +83,14 @@
   [v]
   (keyword (remote-value (get-remote-field v "sym"))))
 
+(defmethod remote-value clojure.lang.Ref
+  [v]
+  {:type :remote-ref,
+   :id (.uniqueID ^ObjectReference v)
+   :value (let [tvals (get-remote-field v "tvals")]
+            (when tvals
+              (remote-value (get-remote-field tvals "val"))))})
+
 (defmethod remote-value clojure.lang.PersistentVector
   [v]
   (let [cnt (.value ^IntegerValue (get-remote-field v "cnt"))
