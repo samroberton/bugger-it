@@ -42,6 +42,21 @@ code in the remote VM.
 
 Available from https://github.com/samroberton/bugger-it.
 
+*Please note* that to use `bugger-it`, you'll need `$JAVA_HOME/lib/tools.jar`
+to be on your classpath. In many environments that'll be the case already, but
+if you're running it in a plain `lein repl`, and you see this error or
+something like it:
+```
+#<CompilerException java.lang.ClassNotFoundException: com.sun.jdi.Bootstrap, compiling:(bugger_it/core.clj:1:1)>
+```
+then you'll need to fix your classpath to include `tools.jar`.
+
+I've done that in my environment by editing my
+[`~/.lein/profiles.clj`](https://github.com/samroberton/dotfiles/blob/master/clojure/lein/profiles.clj)
+to include `tools.jar` as a resource when I'm running the `repl` command:
+```
+    {:repl {:resource-paths ["/usr/lib/jvm/java-8-oracle/lib/tools.jar"]}}
+```
 
 ## Usage
 
@@ -63,8 +78,8 @@ following, as well:
 If you wish to debug a process that you run from a `lein` REPL, for example, you
 can launch the REPL from your debuggee's `lein` project directory like this:
 ```bash
-    $ JAVA_OPTS="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n" \
-          -Dclojure.compiler.disable-locals-clearing=true lein repl
+    $ JAVA_OPTS="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n \
+          -Dclojure.compiler.disable-locals-clearing=true" lein repl
 ```
 
 When that JVM starts up, you'll see it report the port number to which it's
